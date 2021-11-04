@@ -9,4 +9,4 @@ A pain of glass between you and your Kubernetes clusters.
 If you wish to build it and try it out though, simply:
 - run `go build .` in the root of the repo
 - copy the produced binary into somewhere within your path
-- create an alias in your `.bashrc` or `.zshrc` like: `alias kubectl="kube-lock kubectl --"
+- create an alias in your `.bashrc` or `.zshrc` like: `alias kubectl="kube-lock kubectl --"`
