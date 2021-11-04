@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	log "github.com/sirupsen/logrus"
@@ -51,10 +52,25 @@ func initConfig() {
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 
-		// Search config in home directory with name ".cobra" (without extension).
+		// Search config in home directory with name ".kube-lock" (without extension).
 		viper.AddConfigPath(home)
 		viper.SetConfigType("yaml")
 		viper.SetConfigName(".kube-lock")
+
+		configFilePath := home + "/.kube-lock.yaml"
+		_, err = os.Stat(configFilePath)
+
+		// create file if not exists
+		if os.IsNotExist(err) {
+			var file, err = os.Create(configFilePath)
+			if err != nil {
+				fmt.Println(err.Error())
+				os.Exit(1)
+			}
+			defer file.Close()
+			fmt.Println("File Created Successfully", configFilePath)
+		}
+
 	}
 
 	viper.AutomaticEnv()

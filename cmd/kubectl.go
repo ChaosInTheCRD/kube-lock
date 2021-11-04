@@ -265,9 +265,14 @@ func findContextInConfig(kubeContext string, config KubeLockConfig) (string, int
 	// If the status isn't populated, add the context to the config with defaults if it doesn't exist
 	// If it does exist, but there is no status field populated, lock it to be safe
 	if found == false {
-		defaultProfile := config.DefaultProfile
-		log.Warn("kube-lock found that context '", kubeContext, "' has no config. Loading default profile '", defaultProfile, "'.")
-		newContext := KubeLockContexts{Name: kubeContext, Status: defaultProfile}
+		if config.DefaultProfile == "" {
+			log.Debug("Ensuring defaults are setup if not already:")
+			config.DefaultProfile = "protected"
+			config.Profiles = append(config.Profiles, KubeLockProfiles{Name: "protected", BlockedVerbs: []string{"delete", "apply", "create", "patch", "label", "annotate", "replace", "cp", "taint", "drain", "uncordon", "cordon", "auto-scale", "scale", "rollout", "expose", "run", "set"}, DeletePods: true})
+			WriteToConfig(config)
+		}
+		log.Warn("kube-lock found that context '", kubeContext, "' has no config. Loading default profile '", config.DefaultProfile, "'.")
+		newContext := KubeLockContexts{Name: kubeContext, Status: config.DefaultProfile}
 		config.Contexts = append(config.Contexts, newContext)
 		WriteToConfig(config)
 		os.Exit(1)
