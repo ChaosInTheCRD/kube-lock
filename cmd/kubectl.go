@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/viper"
 	yaml "gopkg.in/yaml.v3"
 	discovery "k8s.io/client-go/discovery/cached/disk"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
