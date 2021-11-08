@@ -146,24 +146,34 @@ func evaluateContext(cmd *cobra.Command, args []string) (bool, error) {
 		return false, err
 	}
 
-	// // If there is a 'delete pod' command issued of some sort, check if the 'deletePods' boolean has been set
-	// if (verb == "delete" && contains([]string{"pod", "pods", "po"}, resource)) || strings.Contains(resource, "pod/") || strings.Contains(resource, "pods/") {
-	// 	if deletePods == true {
-	// 		log.Debug("You are authorized to delete pods under status %s, proceed", status)
-	// 		return true, nil
-	// 	} else {
-	// 		log.Info("Halt! Your context has status %s, which is not authorized to delete pods! Exiting...", status)
-	// 		os.Exit(1)
-	// 	}
-	// }
-
-	// Finally, we must check if the verb should be blocked
+	// we must check if the verb should be blocked
 	if !contains(blockedVerbs, verb) {
 		log.Debug("verb %s is authorized under status %s, proceed", verb, status)
 		return true, nil
+	} else if verb == "delete" {
+		log.Debug("Delete exceptions must be checked, continuing")
 	} else {
 		log.Info("Halt! Your context has status '", status, "' which is not authorized to ", verb, " ", plural.Plural(resource), "! Exiting...")
 		os.Exit(1)
+	}
+
+	// Finally, we must check if there is a delete exception for the delete command
+	kubeconfig := os.Getenv("KUBECONFIG")
+	for _, exception := range deleteExceptions {
+		if exception.Resource == resource {
+			log.Debug("Delete exception in Profile ", status, " allows for deleting ", resource, ", proceed")
+		}
+	}
+	for _, exception := range deleteExceptions {
+		exists, err := findResourceTypeFromDiscovery(kubeconfig, resource, exception.Group, exception.Resource)
+		if err != nil {
+			return false, err
+		} else if exists {
+			log.Debug("Delete exception in Profile ", status, " allows for deleting ", resource, ", proceed")
+			return true, nil
+		} else {
+			log.Info("Delete exception ", exception.Resource, " does not match any resources in group ", exception.Group)
+		}
 	}
 
 	return false, nil
@@ -311,7 +321,7 @@ func findContextInConfig(kubeContext string, config KubeLockConfig) (string, int
 	return status, contextIndex, nil
 }
 
-func findResourceTypeFromDiscovery(kubeConfig string, exceptions []KubeLockDeleteExceptions, resource string) (bool, error) {
+func findResourceTypeFromDiscovery(kubeConfig string, resource string, groupVersion string, exceptionResource string) (bool, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfig)
 	if err != nil {
 		log.Info(err)
@@ -324,15 +334,19 @@ func findResourceTypeFromDiscovery(kubeConfig string, exceptions []KubeLockDelet
 		return false, err
 	}
 
-	resources, err := discoveryClient.ServerPreferredResources()
+	resourceList, err := discoveryClient.ServerResourcesForGroupVersion(groupVersion)
 
-	// for _, res := range resources.A {
-	// 	if
-	// }
-
-	for i, _ := range resources {
-		log.Info(resources[i])
+	for _, res := range resourceList.APIResources {
+		log.Info(res.Name)
+		if res.Name == exceptionResource {
+			if (resource != res.Name) || contains(res.ShortNames, resource) || contains(res.Verbs, resource) {
+				log.Info("resource ", resource, " does not match any strings in resource ", res.Name)
+			} else {
+				log.Info("resource ", resource, " matches a string in resource ", res.Name)
+				return true, nil
+			}
+		}
 	}
 
-	return true, nil
+	return false, nil
 }
