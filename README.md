@@ -1,6 +1,6 @@
+# kube-lock
 ☢️ Currently in Alpha! I have finished building the first iteration of the tool, but it may be a bit rough around the edges. Nevertheless, feel free to give it a try! ☢️
 
-# kube-lock
 A pain of glass between you and your Kubernetes clusters.
 - Sits as a middle-man between you and `kubectl`, allowing you to `lock` and `unlock` contexts.
 - Prevents misfires to production / high-value Kubernetes clusters that you might have strong IAM privileges on.
