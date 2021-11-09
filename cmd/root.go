@@ -18,7 +18,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "kube-lock",
 		Short: "A friendly kubectl wrapper that provides a pain of glass between you and your cluster.",
-		Long:  `Still need to write...`,
+		Long:  "kube-lock sits as a middle-man between you and kubectl, allowing you to lock and unlock contexts.\n\nThis aims to prevent misfires to production / high-value Kubernetes clusters that you might have strong IAM privileges on. kube-lock supports custom 'Profiles', allowing you to restrict certain verbs from being passed to high-value clusters. \n\nWARNING: This tool DOES NOT serve as an alternative to Kubernetes Role-Based Access Control, the de-facto standard method of configuring access to the Kubernetes API. This tool provides a convenient layer of protection if you happen to have privileged credentials to a Kubernetes cluster stored locally and an extra layer of protection is preferred.",
 	}
 )
 
@@ -30,17 +30,9 @@ func Execute() error {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "verbose logging")
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cobra.yaml)")
 	rootCmd.PersistentFlags().StringVar(&context, "context", "", "the Kubernetes context you want to address")
-
-	// rootCmd.PersistentFlags().Bool("viper", true, "use Viper for configuration")
-	// viper.BindPFlag("author", rootCmd.PersistentFlags().Lookup("author"))
-	// viper.BindPFlag("useViper", rootCmd.PersistentFlags().Lookup("viper"))
-	// viper.SetDefault("author", "NAME HERE <EMAIL ADDRESS>")
-	// viper.SetDefault("license", "apache")
-
 }
 
 func initConfig() {
