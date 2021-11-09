@@ -341,6 +341,7 @@ func findContextInConfig(kubeContext string, config KubeLockConfig) (string, int
 
 		if time.Now().Sub(timestampTime) > unlockTimeout {
 			log.Error("Halt! Unlock for Context '", kubeContext, "' has expired (times out after ", unlockTimeout.String(), "). Setting status of context back to 'locked' and exiting...")
+			setContextStatus(kubeContext, contextIndex, "locked", config)
 			os.Exit(1)
 		}
 	}
