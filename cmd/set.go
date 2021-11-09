@@ -45,7 +45,7 @@ func setProfile(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ok, blockedVerbs, deletePods := validateProfileInConfig(args[0], config)
+	ok, blockedVerbs, deleteExceptions := validateProfileInConfig(args[0], config)
 	if ok != true {
 		log.Error("Profile '", args[0], "' not found. Please add it, or change Profile for context '", kubeContext, "'.")
 		os.Exit(1)
@@ -57,22 +57,22 @@ func setProfile(cmd *cobra.Command, args []string) error {
 	blockedVerbsOut := "'" + strings.Join(blockedVerbs, `','`) + `'`
 	log.Info("\nProfile Rules:")
 	log.Info("Blocked Verbs: ", blockedVerbsOut)
-	log.Info("Ability to Delete Pods: ", deletePods)
+	log.Info("Delete Exceptions: ", deleteExceptions)
 	return nil
 }
 
-func validateProfileInConfig(profile string, config KubeLockConfig) (bool, []string, bool) {
+func validateProfileInConfig(profile string, config KubeLockConfig) (bool, []string, []KubeLockDeleteExceptions) {
 	log.Debug("Validating that Profile '", profile, "' exists in kube-lock config.")
 	var blockedVerbs []string
-	var deletePods bool
+	var deleteExceptions []KubeLockDeleteExceptions
 	var ok bool
 	for i, profiles := range config.Profiles {
 		if profiles.Name == profile {
 			blockedVerbs = config.Profiles[i].BlockedVerbs
-			deletePods = config.Profiles[i].DeletePods
+			deleteExceptions = config.Profiles[i].DeleteExceptions
 			ok = true
 		}
 	}
 
-	return ok, blockedVerbs, deletePods
+	return ok, blockedVerbs, deleteExceptions
 }

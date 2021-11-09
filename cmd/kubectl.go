@@ -4,14 +4,21 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	plural "github.com/gertd/go-pluralize"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	yaml "gopkg.in/yaml.v3"
+	discovery "k8s.io/client-go/discovery/cached/disk"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
 )
+
+func getDeleteBoolFlags() []string {
+	return []string{"--all", "--all-namespaces", "--force", "--ignore-not-found", "--now", "--recursive", "-R", "--wait"}
+}
 
 type KubeLockConfig struct {
 	Contexts       []KubeLockContexts `yaml: "contexts"`
@@ -26,9 +33,14 @@ type KubeLockContexts struct {
 }
 
 type KubeLockProfiles struct {
-	Name         string   `yaml: "name"`
-	BlockedVerbs []string `yaml: "blockedVerbs"`
-	DeletePods   bool     `yaml: "deletePods"`
+	Name             string                     `yaml: "name"`
+	BlockedVerbs     []string                   `yaml: "blockedVerbs"`
+	DeleteExceptions []KubeLockDeleteExceptions `yaml: "deleteExceptions"`
+}
+
+type KubeLockDeleteExceptions struct {
+	Group    string `yaml: "group"`
+	Resource string `yaml: "resource"`
 }
 
 func init() {
@@ -42,7 +54,7 @@ var kubectlCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ok, err := evaluateContext(cmd, args)
 		if err != nil {
-			log.Fatal("Context evaluation failed: %s", err)
+			log.Fatal("Context evaluation failed: ", err)
 			os.Exit(1)
 		}
 		if ok {
@@ -64,6 +76,7 @@ func findContextArg(args []string) string {
 
 func findContextConfig() (string, error) {
 	configPath := os.Getenv("KUBECONFIG")
+
 	kubeConfig, err := clientcmd.LoadFromFile(configPath)
 	if err != nil {
 		return "", err
@@ -88,7 +101,6 @@ func findContext(args []string) (string, error) {
 }
 
 func evaluateContext(cmd *cobra.Command, args []string) (bool, error) {
-	plural := plural.NewClient()
 
 	// Finding the current context set
 	kubeContext, err := findContext(args)
@@ -109,15 +121,15 @@ func evaluateContext(cmd *cobra.Command, args []string) (bool, error) {
 
 	// Exit now if status is 'unlocked' or 'locked'
 	if status == "unlocked" {
-		log.Debug("Your context is unlocked, proceed", status)
+		log.Debug("Your context is unlocked! Proceed...", status)
 		return true, nil
 	} else if status == "locked" {
-		log.Warn("Halt! Your context is locked! Exiting...")
+		log.Error("Halt! Your context is locked! Exiting...")
 		os.Exit(1)
 	}
 
 	// Checking status has an associated profile
-	ok, blockedVerbs, deletePods := validateProfileInConfig(status, config)
+	ok, blockedVerbs, deleteExceptions := validateProfileInConfig(status, config)
 	if ok != true {
 		log.Error("Profile '", status, "' not found. Please add it, or change Profile for context '", kubeContext, "'.")
 		os.Exit(1)
@@ -131,26 +143,40 @@ func evaluateContext(cmd *cobra.Command, args []string) (bool, error) {
 		return false, err
 	}
 
-	// If there is a 'delete pod' command issued of some sort, check if the 'deletePods' boolean has been set
-	if (verb == "delete" && contains([]string{"pod", "pods", "po"}, resource)) || strings.Contains(resource, "pod/") || strings.Contains(resource, "pods/") {
-		if deletePods == true {
-			log.Debug("You are authorized to delete pods under status %s, proceed", status)
-			return true, nil
-		} else {
-			log.Info("Halt! Your context has status %s, which is not authorized to delete pods! Exiting...", status)
-			os.Exit(1)
-		}
-	}
-
-	// Finally, we must check if the verb should be blocked
+	// we must check if the verb should be blocked
 	if !contains(blockedVerbs, verb) {
-		log.Debug("verb %s is authorized under status %s, proceed", verb, status)
+		log.Debug("verb '", verb, "' is authorized with Profile ", status, "! Proceed...", status)
 		return true, nil
+	} else if verb == "delete" {
+		log.Debug("Delete exceptions must be checked, continuing...")
 	} else {
-		log.Info("Halt! Your context has status '", status, "' which is not authorized to ", verb, " ", plural.Plural(resource), "! Exiting...")
+		log.Error("Halt! Your context has status '", status, "' which is not authorized to '", verb, "' resources! Exiting...")
 		os.Exit(1)
 	}
 
+	// Finally, we must check if there is a delete exception for the delete command
+	kubeconfig := os.Getenv("KUBECONFIG")
+	plural := plural.NewClient()
+	for _, exception := range deleteExceptions {
+		if exception.Resource == resource {
+			log.Debug("Delete exception in Profile '", status, "' allows for deleting '", plural.Plural(resource), "'! Proceeding...")
+		}
+	}
+	for _, exception := range deleteExceptions {
+		exists, err := findResourceTypeFromDiscovery(kubeconfig, resource, exception.Group, exception.Resource)
+		if err != nil {
+			return false, err
+		}
+
+		if exists {
+			log.Debug("Delete exceptions in Profile '", status, "' allows for deleting '", plural.Plural(resource), "'! Proceed...")
+			return true, nil
+		} else {
+			log.Debug("Delete exception '", exception.Resource, "' does not match any resources in group '", exception.Group, "'...")
+		}
+	}
+
+	log.Error("Halt! Delete exceptions in Profile '", status, "' does not allow for deleting '", plural.Plural(resource), "'! Exiting...")
 	return false, nil
 }
 
@@ -163,8 +189,8 @@ func execKubectl(cmd *cobra.Command, args []string) {
 	kubectlCmd.Stderr = os.Stderr
 
 	kubectlCmd.Start()
-	err := kubectlCmd.Wait()
 
+	err := kubectlCmd.Wait()
 	if err != nil {
 		os.Exit(err.(*exec.ExitError).ExitCode())
 	}
@@ -187,30 +213,41 @@ func findArgs(args []string) (string, string, error) {
 	var verb string
 	var resource string
 
+	delBoolFlags := getDeleteBoolFlags()
+
 	for _, arg := range args {
 		switch {
 		// The next loop must be skipped
 		case skipLoop:
 			skipLoop = false
 			continue
+		// Checking for delete bool flags
+		case verb != "" && contains(delBoolFlags, arg):
+			log.Debug(arg, " is a delete bool flag, and should be skipped")
+			continue
 		// A long flag with a space separated value
 		case strings.HasPrefix(arg, "--") && !strings.Contains(arg, "="):
-			log.Warn("%s is a flag with a space separator, skipping the next string and continuing", arg)
+			log.Debug(arg, " is a flag with a space separator, skipping the next string and continuing")
 			skipLoop = true
 			continue
 		// A short flag with a space separated value
 		case strings.HasPrefix(arg, "-") && !strings.Contains(arg, "=") && len(arg) == 2:
-			log.Warn("%s is a flag with a space separator, skipping the next string and continuing", arg)
+			log.Debug(arg, " is a flag with a space separator, skipping the next string and continuing")
 			skipLoop = true
 			continue
 		case isFlagArg(arg):
-			log.Warn("%s is a flag with a '=' separator, continuing", arg)
+			log.Debug(arg, " is a flag with a '=' separator, continuing")
 			continue
 		}
 
 		if verb == "" {
 			verb = arg
-			continue
+			if verb != "delete" {
+				log.Debug("verb '", verb, "' is not the verb 'delete' and so we are not looking for further rules")
+				break
+			} else {
+				continue
+			}
 		} else if resource == "" {
 			resource = arg
 			break
@@ -268,14 +305,15 @@ func findContextInConfig(kubeContext string, config KubeLockConfig) (string, int
 		if config.DefaultProfile == "" {
 			log.Debug("Ensuring defaults are setup if not already:")
 			config.DefaultProfile = "protected"
-			config.Profiles = append(config.Profiles, KubeLockProfiles{Name: "protected", BlockedVerbs: []string{"delete", "apply", "create", "patch", "label", "annotate", "replace", "cp", "taint", "drain", "uncordon", "cordon", "auto-scale", "scale", "rollout", "expose", "run", "set"}, DeletePods: true})
+			config.Profiles = append(config.Profiles, KubeLockProfiles{Name: "protected", BlockedVerbs: []string{"delete", "apply", "create", "patch", "label", "annotate", "replace", "cp", "taint", "drain", "uncordon", "cordon", "auto-scale", "scale", "rollout", "expose", "run", "set"}, DeleteExceptions: []KubeLockDeleteExceptions{{Group: "cert-manager.io/v1", Resource: "certificates"}, {Group: "v1", Resource: "pods"}}})
 			WriteToConfig(config)
 		}
-		log.Warn("kube-lock found that context '", kubeContext, "' has no config. Loading default profile '", config.DefaultProfile, "'.")
-		newContext := KubeLockContexts{Name: kubeContext, Status: config.DefaultProfile}
+
+		log.Warn("kube-lock found that no config entry exists for context '", kubeContext, "'. Adding to config and setting to unlocked and continuing.")
+		newContext := KubeLockContexts{Name: kubeContext, Status: "unlocked"}
 		config.Contexts = append(config.Contexts, newContext)
 		WriteToConfig(config)
-		os.Exit(1)
+
 	} else if status == "" {
 		log.Warn("kube-lock found that context '", kubeContext, "' has no status set, so will set to 'locked' for safety reasons.")
 		setContextStatus(kubeContext, contextIndex, "locked", config)
@@ -283,4 +321,31 @@ func findContextInConfig(kubeContext string, config KubeLockConfig) (string, int
 	}
 
 	return status, contextIndex, nil
+}
+
+func findResourceTypeFromDiscovery(kubeConfig string, resource string, groupVersion string, exceptionResource string) (bool, error) {
+	config, err := clientcmd.BuildConfigFromFlags("", kubeConfig)
+	if err != nil {
+		return false, err
+	}
+
+	discoveryClient, err := discovery.NewCachedDiscoveryClientForConfig(config, "/Users/tom/.kube/cache/discovery", "", time.Duration(10*time.Millisecond))
+	if err != nil {
+		return false, err
+	}
+
+	resourceList, err := discoveryClient.ServerResourcesForGroupVersion(groupVersion)
+
+	for _, res := range resourceList.APIResources {
+		if res.Name == exceptionResource {
+			if (resource != res.Name) || contains(res.ShortNames, resource) || contains(res.Verbs, resource) {
+				log.Debug("resource ", resource, " does not match any strings in resource ", res.Name)
+			} else {
+				log.Debug("resource ", resource, " matches a string in resource ", res.Name)
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
