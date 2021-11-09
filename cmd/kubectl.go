@@ -54,7 +54,7 @@ var kubectlCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ok, err := evaluateContext(cmd, args)
 		if err != nil {
-			log.Fatal("Context evaluation failed: %s", err)
+			log.Fatal("Context evaluation failed: ", err)
 			os.Exit(1)
 		}
 		if ok {
@@ -101,7 +101,6 @@ func findContext(args []string) (string, error) {
 }
 
 func evaluateContext(cmd *cobra.Command, args []string) (bool, error) {
-	plural := plural.NewClient()
 
 	// Finding the current context set
 	kubeContext, err := findContext(args)
@@ -122,10 +121,10 @@ func evaluateContext(cmd *cobra.Command, args []string) (bool, error) {
 
 	// Exit now if status is 'unlocked' or 'locked'
 	if status == "unlocked" {
-		log.Debug("Your context is unlocked, proceed", status)
+		log.Debug("Your context is unlocked! Proceed...", status)
 		return true, nil
 	} else if status == "locked" {
-		log.Warn("Halt! Your context is locked! Exiting...")
+		log.Error("Halt! Your context is locked! Exiting...")
 		os.Exit(1)
 	}
 
@@ -135,8 +134,6 @@ func evaluateContext(cmd *cobra.Command, args []string) (bool, error) {
 		log.Error("Profile '", status, "' not found. Please add it, or change Profile for context '", kubeContext, "'.")
 		os.Exit(1)
 	}
-
-	log.Info(deleteExceptions)
 
 	// Find the verb and resource strings from the kubectl command issued by the user
 	var verb string
@@ -148,34 +145,38 @@ func evaluateContext(cmd *cobra.Command, args []string) (bool, error) {
 
 	// we must check if the verb should be blocked
 	if !contains(blockedVerbs, verb) {
-		log.Debug("verb %s is authorized under status %s, proceed", verb, status)
+		log.Debug("verb '", verb, "' is authorized with Profile ", status, "! Proceed...", status)
 		return true, nil
 	} else if verb == "delete" {
-		log.Debug("Delete exceptions must be checked, continuing")
+		log.Debug("Delete exceptions must be checked, continuing...")
 	} else {
-		log.Info("Halt! Your context has status '", status, "' which is not authorized to ", verb, " ", plural.Plural(resource), "! Exiting...")
+		log.Error("Halt! Your context has status '", status, "' which is not authorized to '", verb, "' resources! Exiting...")
 		os.Exit(1)
 	}
 
 	// Finally, we must check if there is a delete exception for the delete command
 	kubeconfig := os.Getenv("KUBECONFIG")
+	plural := plural.NewClient()
 	for _, exception := range deleteExceptions {
 		if exception.Resource == resource {
-			log.Debug("Delete exception in Profile ", status, " allows for deleting ", resource, ", proceed")
+			log.Debug("Delete exception in Profile '", status, "' allows for deleting '", plural.Plural(resource), "'! Proceeding...")
 		}
 	}
 	for _, exception := range deleteExceptions {
 		exists, err := findResourceTypeFromDiscovery(kubeconfig, resource, exception.Group, exception.Resource)
 		if err != nil {
 			return false, err
-		} else if exists {
-			log.Debug("Delete exception in Profile ", status, " allows for deleting ", resource, ", proceed")
+		}
+
+		if exists {
+			log.Debug("Delete exceptions in Profile '", status, "' allows for deleting '", plural.Plural(resource), "'! Proceed...")
 			return true, nil
 		} else {
-			log.Info("Delete exception ", exception.Resource, " does not match any resources in group ", exception.Group)
+			log.Debug("Delete exception '", exception.Resource, "' does not match any resources in group '", exception.Group, "'...")
 		}
 	}
 
+	log.Error("Halt! Delete exceptions in Profile '", status, "' does not allow for deleting '", plural.Plural(resource), "'! Exiting...")
 	return false, nil
 }
 
@@ -242,7 +243,7 @@ func findArgs(args []string) (string, string, error) {
 		if verb == "" {
 			verb = arg
 			if verb != "delete" {
-				log.Debug(verb, "is not the verb 'delete' and so we are not looking for further rules")
+				log.Debug("verb '", verb, "' is not the verb 'delete' and so we are not looking for further rules")
 				break
 			} else {
 				continue
@@ -304,14 +305,15 @@ func findContextInConfig(kubeContext string, config KubeLockConfig) (string, int
 		if config.DefaultProfile == "" {
 			log.Debug("Ensuring defaults are setup if not already:")
 			config.DefaultProfile = "protected"
-			config.Profiles = append(config.Profiles, KubeLockProfiles{Name: "protected", BlockedVerbs: []string{"delete", "apply", "create", "patch", "label", "annotate", "replace", "cp", "taint", "drain", "uncordon", "cordon", "auto-scale", "scale", "rollout", "expose", "run", "set"}, DeleteExceptions: []KubeLockDeleteExceptions{}})
+			config.Profiles = append(config.Profiles, KubeLockProfiles{Name: "protected", BlockedVerbs: []string{"delete", "apply", "create", "patch", "label", "annotate", "replace", "cp", "taint", "drain", "uncordon", "cordon", "auto-scale", "scale", "rollout", "expose", "run", "set"}, DeleteExceptions: []KubeLockDeleteExceptions{{Group: "cert-manager.io/v1", Resource: "certificates"}, {Group: "v1", Resource: "pods"}}})
 			WriteToConfig(config)
 		}
-		log.Warn("kube-lock found that context '", kubeContext, "' has no config. Loading default profile '", config.DefaultProfile, "'.")
-		newContext := KubeLockContexts{Name: kubeContext, Status: config.DefaultProfile}
+
+		log.Warn("kube-lock found that no config entry exists for context '", kubeContext, "'. Adding to config and setting to unlocked and continuing.")
+		newContext := KubeLockContexts{Name: kubeContext, Status: "unlocked"}
 		config.Contexts = append(config.Contexts, newContext)
 		WriteToConfig(config)
-		os.Exit(1)
+
 	} else if status == "" {
 		log.Warn("kube-lock found that context '", kubeContext, "' has no status set, so will set to 'locked' for safety reasons.")
 		setContextStatus(kubeContext, contextIndex, "locked", config)
@@ -324,25 +326,22 @@ func findContextInConfig(kubeContext string, config KubeLockConfig) (string, int
 func findResourceTypeFromDiscovery(kubeConfig string, resource string, groupVersion string, exceptionResource string) (bool, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfig)
 	if err != nil {
-		log.Info(err)
 		return false, err
 	}
 
 	discoveryClient, err := discovery.NewCachedDiscoveryClientForConfig(config, "/Users/tom/.kube/cache/discovery", "", time.Duration(10*time.Millisecond))
 	if err != nil {
-		log.Info(err)
 		return false, err
 	}
 
 	resourceList, err := discoveryClient.ServerResourcesForGroupVersion(groupVersion)
 
 	for _, res := range resourceList.APIResources {
-		log.Info(res.Name)
 		if res.Name == exceptionResource {
 			if (resource != res.Name) || contains(res.ShortNames, resource) || contains(res.Verbs, resource) {
-				log.Info("resource ", resource, " does not match any strings in resource ", res.Name)
+				log.Debug("resource ", resource, " does not match any strings in resource ", res.Name)
 			} else {
-				log.Info("resource ", resource, " matches a string in resource ", res.Name)
+				log.Debug("resource ", resource, " matches a string in resource ", res.Name)
 				return true, nil
 			}
 		}
