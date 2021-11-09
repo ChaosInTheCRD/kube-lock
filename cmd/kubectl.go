@@ -16,14 +16,19 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+const (
+	timestampLayout = "2006-01-02T15:04:05Z07:00"
+)
+
 func getDeleteBoolFlags() []string {
 	return []string{"--all", "--all-namespaces", "--force", "--ignore-not-found", "--now", "--recursive", "-R", "--wait"}
 }
 
 type KubeLockConfig struct {
-	Contexts       []KubeLockContexts `yaml: "contexts"`
-	Profiles       []KubeLockProfiles `yaml: "profiles"`
-	DefaultProfile string             `yaml: "defaultProfile"`
+	Contexts            []KubeLockContexts `yaml: "contexts"`
+	Profiles            []KubeLockProfiles `yaml: "profiles"`
+	DefaultProfile      string             `yaml: "defaultProfile"`
+	UnlockTimeoutPeriod string             `yaml: "unlockTimeoutPeriod"`
 }
 
 type KubeLockContexts struct {
