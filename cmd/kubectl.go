@@ -328,11 +328,22 @@ func findContextInConfig(kubeContext string, config KubeLockConfig) (string, int
 	}
 
 	// If the timestamp found in the contexts status is older than the timeout period set, exit
-	timestampTime, err := time.Parse(timestampLayout, unlockTimestamp)
-	if err != nil {
-		return status, contextIndex, err
+	if config.Contexts[contextIndex].UnlockTimestamp != "" && config.UnlockTimeoutPeriod != "" {
+		timestampTime, err := time.Parse(timestampLayout, unlockTimestamp)
+		if err != nil {
+			return status, contextIndex, err
+		}
+
+		unlockTimeout, err := time.ParseDuration(config.UnlockTimeoutPeriod)
+		if err != nil {
+			return status, contextIndex, err
+		}
+
+		if time.Now().Sub(timestampTime) > unlockTimeout {
+			log.Error("Halt! Unlock for Context '", kubeContext, "' has expired (times out after ", unlockTimeout.String(), "). Setting status of context back to 'locked' and exiting...")
+			os.Exit(1)
+		}
 	}
-	unlockTimeout, err := time.ParseDuration(config.UnlockTimeoutPeriod)
 	return status, contextIndex, nil
 }
 
