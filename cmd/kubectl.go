@@ -221,6 +221,10 @@ func findArgs(args []string) (string, string, error) {
 		case skipLoop:
 			skipLoop = false
 			continue
+		// Checking for delete bool flags
+		case verb != "" && contains(delBoolFlags, arg):
+			log.Debug(arg, " is a delete bool flag, and should be skipped")
+			continue
 		// A long flag with a space separated value
 		case strings.HasPrefix(arg, "--") && !strings.Contains(arg, "="):
 			log.Debug(arg, " is a flag with a space separator, skipping the next string and continuing")
@@ -233,10 +237,6 @@ func findArgs(args []string) (string, string, error) {
 			continue
 		case isFlagArg(arg):
 			log.Debug(arg, " is a flag with a '=' separator, continuing")
-			continue
-		// Checking for delete bool flags
-		case arg != "" && contains(delBoolFlags, arg):
-			log.Debug(arg, "is a delete bool flag, and should be skipped")
 			continue
 		}
 
