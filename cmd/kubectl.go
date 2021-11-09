@@ -294,10 +294,12 @@ func findContextInConfig(kubeContext string, config KubeLockConfig) (string, int
 	// Getting the lock status for current context
 	var status string
 	var contextIndex int
+	var unlockTimestamp string
 	var found bool
 	for i, context := range config.Contexts {
 		if context.Name == kubeContext {
 			status = config.Contexts[i].Status
+			unlockTimestamp = config.Contexts[i].UnlockTimestamp
 			found = true
 			contextIndex = i
 			break
@@ -325,6 +327,12 @@ func findContextInConfig(kubeContext string, config KubeLockConfig) (string, int
 		os.Exit(1)
 	}
 
+	// If the timestamp found in the contexts status is older than the timeout period set, exit
+	timestampTime, err := time.Parse(timestampLayout, unlockTimestamp)
+	if err != nil {
+		return status, contextIndex, err
+	}
+	unlockTimeout, err := time.ParseDuration(config.UnlockTimeoutPeriod)
 	return status, contextIndex, nil
 }
 

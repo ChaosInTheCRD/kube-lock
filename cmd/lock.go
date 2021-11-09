@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"time"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -49,6 +51,13 @@ func setLock(cmd *cobra.Command, args []string) error {
 }
 
 func setContextStatus(kubeContext string, index int, status string, config KubeLockConfig) {
+	if status == ("unlocked") && config.Contexts[index].Status == "locked" {
+		log.Debug("Setting context from 'locked' to 'unlocked', marking unlock Timestamp to check for timeout later...")
+		config.Contexts[index].UnlockTimestamp = time.Now().Format(timestampLayout)
+	} else if config.Contexts[index].UnlockTimestamp != "" {
+		log.Debug("Clearing unlock timestamp...")
+		config.Contexts[index].UnlockTimestamp = ""
+	}
 	config.Contexts[index].Status = status
 	WriteToConfig(config)
 	log.Info("Set context '", kubeContext, "' to ", status, ".")
