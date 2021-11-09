@@ -16,14 +16,19 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+const (
+	timestampLayout = "2006-01-02T15:04:05Z07:00"
+)
+
 func getDeleteBoolFlags() []string {
 	return []string{"--all", "--all-namespaces", "--force", "--ignore-not-found", "--now", "--recursive", "-R", "--wait"}
 }
 
 type KubeLockConfig struct {
-	Contexts       []KubeLockContexts `yaml: "contexts"`
-	Profiles       []KubeLockProfiles `yaml: "profiles"`
-	DefaultProfile string             `yaml: "defaultProfile"`
+	Contexts            []KubeLockContexts `yaml: "contexts"`
+	Profiles            []KubeLockProfiles `yaml: "profiles"`
+	DefaultProfile      string             `yaml: "defaultProfile"`
+	UnlockTimeoutPeriod string             `yaml: "unlockTimeoutPeriod"`
 }
 
 type KubeLockContexts struct {
@@ -289,10 +294,12 @@ func findContextInConfig(kubeContext string, config KubeLockConfig) (string, int
 	// Getting the lock status for current context
 	var status string
 	var contextIndex int
+	var unlockTimestamp string
 	var found bool
 	for i, context := range config.Contexts {
 		if context.Name == kubeContext {
 			status = config.Contexts[i].Status
+			unlockTimestamp = config.Contexts[i].UnlockTimestamp
 			found = true
 			contextIndex = i
 			break
@@ -320,6 +327,24 @@ func findContextInConfig(kubeContext string, config KubeLockConfig) (string, int
 		os.Exit(1)
 	}
 
+	// If the timestamp found in the contexts status is older than the timeout period set, exit
+	if config.Contexts[contextIndex].UnlockTimestamp != "" && config.UnlockTimeoutPeriod != "" {
+		timestampTime, err := time.Parse(timestampLayout, unlockTimestamp)
+		if err != nil {
+			return status, contextIndex, err
+		}
+
+		unlockTimeout, err := time.ParseDuration(config.UnlockTimeoutPeriod)
+		if err != nil {
+			return status, contextIndex, err
+		}
+
+		if time.Now().Sub(timestampTime) > unlockTimeout {
+			log.Error("Halt! Unlock for Context '", kubeContext, "' has expired (times out after ", unlockTimeout.String(), "). Setting status of context back to 'locked' and exiting...")
+			setContextStatus(kubeContext, contextIndex, "locked", config)
+			os.Exit(1)
+		}
+	}
 	return status, contextIndex, nil
 }
 
