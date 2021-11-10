@@ -40,7 +40,7 @@ func setProfile(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	_, index, err := findContextInConfig(kubeContext, config)
+	_, _, index, err := findContextInConfig(kubeContext, config)
 	if err != nil {
 		return err
 	}
