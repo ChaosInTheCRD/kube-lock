@@ -99,6 +99,9 @@ func findContext(args []string) (string, error) {
 		kubeContext, err = findContextConfig()
 		if err != nil {
 			return kubeContext, err
+		} else if kubeContext == "" {
+			log.Warn("No context found. Exiting.")
+			os.Exit(1)
 		}
 	}
 
