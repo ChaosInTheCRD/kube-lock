@@ -17,8 +17,8 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:   "kube-lock",
-		Short: "A friendly kubectl wrapper that provides a pain of glass between you and your cluster.",
-		Long:  "kube-lock sits as a middle-man between you and kubectl, allowing you to lock and unlock contexts.\n\nThis aims to prevent misfires to production / high-value Kubernetes clusters that you might have strong IAM privileges on. kube-lock supports custom 'Profiles', allowing you to restrict certain verbs from being passed to high-value clusters. \n\nWARNING: This tool DOES NOT serve as an alternative to Kubernetes Role-Based Access Control, the de-facto standard method of configuring access to the Kubernetes API. This tool provides a convenient layer of protection if you happen to have privileged credentials to a Kubernetes cluster stored locally and an extra layer of protection is preferred.",
+		Short: "A pane of glass between you and your Kubernetes clusters.",
+		Long:  "kube-lock sits as an intermediary between you and kubectl, allowing you to lock and unlock contexts.\n\nThis aims to prevent misfires to production / high-value Kubernetes clusters that you might have strong IAM privileges on. kube-lock supports custom 'Profiles', allowing you to restrict certain verbs from being passed to high-value clusters. \n\nWARNING: This tool DOES NOT serve as an alternative to Kubernetes Role-Based Access Control, the de-facto standard method of configuring access to the Kubernetes API. This tool provides a convenient layer of protection if you happen to have privileged credentials to a Kubernetes cluster stored locally and an extra layer of protection is preferred.",
 	}
 )
 
