@@ -335,6 +335,7 @@ func findContextInConfig(kubeContext string, config KubeLockConfig) (string, str
 		newContext := KubeLockContexts{Name: kubeContext, Status: "unlocked"}
 		config.Contexts = append(config.Contexts, newContext)
 		WriteToConfig(config)
+		status = "unlocked"
 
 	} else if status == "" {
 		log.Warn("kube-lock found that context '", kubeContext, "' has no status set, so will set to 'locked' for safety reasons.")
