@@ -377,7 +377,7 @@ func checkIfUnlockExpired(unlockTimestamp string, kubeContext string, contextInd
 
 	// Check if the timestamp isn't empty... if it is set the context to 'locked' and return an error
 	if unlockTimestamp == "" {
-		log.Warn("No unlock timestamp set for this context. Unlock timestamps are only set when going from 'locked' to 'unlocked' status.")
+		log.Debug("No unlock timestamp set for this context. Unlock timestamps are only set when going from 'locked' to 'unlocked' status.")
 		return true, nil
 	}
 
