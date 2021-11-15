@@ -50,8 +50,10 @@ func removeLock(cmd *cobra.Command, args []string) error {
 	// prompter.Password("Please Enter Password (Not Yet Implemented, so any string will be accepted!)")
 	fmt.Println(yesNo("Warning: Are you sure you would like to unlock your context?"))
 	log.Info("Unlocking Context '", kubeContext, "'.")
+	if config.UnlockTimeoutPeriod != "" {
+		log.Info("Your context will be unlocked for ", config.UnlockTimeoutPeriod, ".")
+	}
 	setContextStatus(kubeContext, index, "unlocked", config)
-
 	return nil
 }
 
