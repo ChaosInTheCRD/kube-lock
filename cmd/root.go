@@ -25,7 +25,6 @@ var (
 // Execute executes the root command.
 func Execute() error {
 	return rootCmd.Execute()
-
 }
 
 func init() {
@@ -54,7 +53,7 @@ func initConfig() {
 
 		// create file if not exists
 		if os.IsNotExist(err) {
-			var file, err = os.Create(configFilePath)
+			file, err := os.Create(configFilePath)
 			if err != nil {
 				fmt.Println(err.Error())
 				os.Exit(1)

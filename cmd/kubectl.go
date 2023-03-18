@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -25,27 +26,27 @@ func getDeleteBoolFlags() []string {
 }
 
 type KubeLockConfig struct {
-	Contexts            []KubeLockContexts `yaml: "contexts"`
-	Profiles            []KubeLockProfiles `yaml: "profiles"`
-	DefaultProfile      string             `yaml: "defaultProfile"`
-	UnlockTimeoutPeriod string             `yaml: "unlockTimeoutPeriod"`
+	Contexts            []KubeLockContexts `yaml:"contexts"`
+	Profiles            []KubeLockProfiles `yaml:"profiles"`
+	DefaultProfile      string             `yaml:"defaultProfile"`
+	UnlockTimeoutPeriod string             `yaml:"unlockTimeoutPeriod"`
 }
 
 type KubeLockContexts struct {
-	Name            string `yaml: "name"`
-	Status          string `yaml: "status"`
-	UnlockTimestamp string `yaml: "unlockTimestamp"`
+	Name            string `yaml:"name"`
+	Status          string `yaml:"status"`
+	UnlockTimestamp string `yaml:"unlockTimestamp"`
 }
 
 type KubeLockProfiles struct {
-	Name             string                     `yaml: "name"`
-	BlockedVerbs     []string                   `yaml: "blockedVerbs"`
-	DeleteExceptions []KubeLockDeleteExceptions `yaml: "deleteExceptions"`
+	Name             string                     `yaml:"name"`
+	BlockedVerbs     []string                   `yaml:"blockedVerbs"`
+	DeleteExceptions []KubeLockDeleteExceptions `yaml:"deleteExceptions"`
 }
 
 type KubeLockDeleteExceptions struct {
-	Group    string `yaml: "group"`
-	Resource string `yaml: "resource"`
+	Group    string `yaml:"group"`
+	Resource string `yaml:"resource"`
 }
 
 func init() {
@@ -109,7 +110,6 @@ func findContext(args []string) (string, error) {
 }
 
 func evaluateContext(cmd *cobra.Command, args []string) (bool, error) {
-
 	// Finding the current context set
 	kubeContext, err := findContext(args)
 	if err != nil {
@@ -178,18 +178,14 @@ func evaluateContext(cmd *cobra.Command, args []string) (bool, error) {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	plural := plural.NewClient()
 	for _, exception := range deleteExceptions {
-		if exception.Resource == resource {
-			log.Debug("Delete exception in Profile '", status, "' allows for deleting '", plural.Plural(resource), "'! Proceeding...")
-		}
-	}
-	for _, exception := range deleteExceptions {
-		exists, err := findResourceTypeFromDiscovery(kubeconfig, resource, exception.Group, exception.Resource)
+		exists, err := findResourceTypeFromDiscovery(kubeconfig, resource, exception)
 		if err != nil {
+			log.Debug("There's a problem with the discovery api")
 			return false, err
 		}
 
 		if exists {
-			log.Debug("Delete exceptions in Profile '", status, "' allows for deleting '", plural.Plural(resource), "'! Proceed...")
+			log.Debug("Delete exceptions in Profile '", status, "' allows for deleting '", plural.Plural(resource), "'! Proceeding...")
 			return true, nil
 		} else {
 			log.Debug("Delete exception '", exception.Resource, "' does not match any resources in group '", exception.Group, "'...")
@@ -202,7 +198,6 @@ func evaluateContext(cmd *cobra.Command, args []string) (bool, error) {
 
 // Execute the kubectl command
 func execKubectl(cmd *cobra.Command, args []string) {
-
 	kubectlCmd := exec.Command("kubectl", args...)
 	kubectlCmd.Stdin = os.Stdin
 	kubectlCmd.Stdout = os.Stdout
@@ -323,18 +318,24 @@ func findContextInConfig(kubeContext string, config KubeLockConfig) (string, str
 
 	// If the status isn't populated, add the context to the config with defaults if it doesn't exist
 	// If it does exist, but there is no status field populated, lock it to be safe
-	if found == false {
+	if !found {
 		if config.DefaultProfile == "" {
 			log.Debug("Ensuring defaults are setup if not already:")
 			config.DefaultProfile = "protected"
 			config.Profiles = append(config.Profiles, KubeLockProfiles{Name: "protected", BlockedVerbs: []string{"delete", "apply", "create", "patch", "label", "annotate", "replace", "cp", "taint", "drain", "uncordon", "cordon", "auto-scale", "scale", "rollout", "expose", "run", "set"}, DeleteExceptions: []KubeLockDeleteExceptions{{Group: "cert-manager.io/v1", Resource: "certificates"}, {Group: "v1", Resource: "pods"}}})
-			WriteToConfig(config)
+			err := WriteToConfig(config)
+			if err != nil {
+				return "", "", 0, err
+			}
 		}
 
 		log.Warn("kube-lock found that no config entry exists for context '", kubeContext, "'. Adding to config and setting to unlocked and continuing.")
 		newContext := KubeLockContexts{Name: kubeContext, Status: "unlocked"}
 		config.Contexts = append(config.Contexts, newContext)
-		WriteToConfig(config)
+		err := WriteToConfig(config)
+		if err != nil {
+			return "", "", 0, err
+		}
 		status = "unlocked"
 
 	} else if status == "" {
@@ -346,21 +347,33 @@ func findContextInConfig(kubeContext string, config KubeLockConfig) (string, str
 	return status, unlockTimestamp, contextIndex, nil
 }
 
-func findResourceTypeFromDiscovery(kubeConfig string, resource string, groupVersion string, exceptionResource string) (bool, error) {
+func findResourceTypeFromDiscovery(kubeConfig string, resource string, exception KubeLockDeleteExceptions) (bool, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfig)
 	if err != nil {
+		log.Debug("Couldn't get kubeconfig")
 		return false, err
 	}
-
-	discoveryClient, err := discovery.NewCachedDiscoveryClientForConfig(config, "/Users/tom/.kube/cache/discovery", "", time.Duration(10*time.Millisecond))
+	// Mate wtf sort this out
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
+		log.Debug("Could not find home directory")
+		err := fmt.Errorf("Could not find user home directory:")
+		return false, err
+	}
+	discoveryClient, err := discovery.NewCachedDiscoveryClientForConfig(config, fmt.Sprintf("%s/.kube/cache/discovery", homeDir), "", time.Duration(10*time.Millisecond))
+	if err != nil {
+		log.Debug("Couldn't create new discovery client with config")
 		return false, err
 	}
 
-	resourceList, err := discoveryClient.ServerResourcesForGroupVersion(groupVersion)
+	resourceList, err := discoveryClient.ServerResourcesForGroupVersion(exception.Group)
+	if err != nil {
+		log.Debugf("Couldn't get the resource list for group version %s and resource %s: %s", exception.Group, resource, err.Error())
+		return false, nil
+	}
 
 	for _, res := range resourceList.APIResources {
-		if res.Name == exceptionResource {
+		if res.Name == exception.Resource {
 			if (resource != res.Name) || contains(res.ShortNames, resource) || contains(res.Verbs, resource) {
 				log.Debug("resource ", resource, " does not match any strings in resource ", res.Name)
 			} else {
@@ -374,7 +387,6 @@ func findResourceTypeFromDiscovery(kubeConfig string, resource string, groupVers
 }
 
 func checkIfUnlockExpired(unlockTimestamp string, kubeContext string, contextIndex int, config KubeLockConfig) (bool, error) {
-
 	// Check if the timestamp isn't empty... if it is set the context to 'locked' and return an error
 	if unlockTimestamp == "" {
 		log.Debug("No unlock timestamp set for this context. Unlock timestamps are only set when going from 'locked' to 'unlocked' status.")
