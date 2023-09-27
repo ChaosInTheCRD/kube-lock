@@ -1,5 +1,9 @@
 # kube-lock
 
+<p align="center">
+  <img src="./logo/kube-lock.png" width="350" />
+</p>
+
 A pane of glass between you and your Kubernetes clusters.
 - Sits as an intermediary between you and `kubectl`, allowing you to `lock` and `unlock` contexts.
 - Prevents misfires to production / high-value Kubernetes clusters that you might have strong IAM privileges on.
