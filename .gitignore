@@ -5,6 +5,7 @@
 *.so
 *.dylib
 /kube-lock
+/kubectl-lock
 # Test binary, built with `go test -c`
 *.test
 
