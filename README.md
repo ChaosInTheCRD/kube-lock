@@ -1,5 +1,5 @@
 # kube-lock
-## Now Available as a [Krew](https://krew.sigs.k8s.io/) Plugin!
+## Now Available as a [Krew](https://krew.sigs.k8s.io/) Plugin! See below for install steps
 
 <p align="center">
   <img src="./logo/kube-lock.png" width="350" />
@@ -12,9 +12,10 @@ A pane of glass between you and your Kubernetes clusters.
 
 If you wish to build it and try it out though, you can do one of the following:
 
-## install as a krew plugin!
-1. kubectl krew index add kube-lock https://github.com/chaosinthecrd/kube-lock.git (this is a temporary step while the plugin is getting accepted to the upstream index)
-2. kubectl krew install kube-lock/lock
+## install as a Krew plugin!
+1. [install Krew](https://krew.sigs.k8s.io/docs/user-guide/setup/install/) if you don't already have it
+1. run `kubectl krew index add kube-lock https://github.com/chaosinthecrd/kube-lock.git` to add this repository as a Krew index (this is a temporary step while [the plugin is getting accepted to the upstream index](https://github.com/kubernetes-sigs/krew-index/pull/3409))
+2. install the plugin with `kubectl krew install kube-lock/lock`
 3. create an alias in your `.bashrc` or `.zshrc` like: `alias kubectl="kubectl-lock kubectl --"`
 4. From here, you can use `kube-lock` by calling `kubectl lock` followed by the subcommand you wish to use (e.g., `kubectl lock lock`)
 
