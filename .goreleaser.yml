@@ -2,7 +2,7 @@ before:
   hooks:
   - go mod download
 builds:
-- id: kubectl-tree
+- id: kubectl-lock
   main: ./
   binary: kubectl-lock
   env:
