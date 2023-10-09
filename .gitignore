@@ -4,7 +4,7 @@
 *.dll
 *.so
 *.dylib
-
+/kube-lock
 # Test binary, built with `go test -c`
 *.test
 
