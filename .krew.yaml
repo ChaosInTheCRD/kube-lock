@@ -16,23 +16,23 @@ spec:
       matchLabels:
         os: darwin
         arch: amd64
-    {{addURIAndSha "https://github.com/chaosinthecrd/kube-lock/releases/download/{{ .TagName }}/kubectl-lock_{{ .TagName }}_darwin_amd64.tar.gz" .TagName }}
+    {{addURIAndSha "https://github.com/chaosinthecrd/kube-lock/releases/download/{{ .TagName }}/kube-lock_{{ .TagName }}_darwin_amd64.tar.gz" .TagName }}
     bin: kubectl-lock
   - selector:
       matchLabels:
         os: darwin
         arch: arm64
-    {{addURIAndSha "https://github.com/chaosinthecrd/kube-lock/releases/download/{{ .TagName }}/kubectl-lock_{{ .TagName }}_darwin_arm64.tar.gz" .TagName }}
+    {{addURIAndSha "https://github.com/chaosinthecrd/kube-lock/releases/download/{{ .TagName }}/kube-lock_{{ .TagName }}_darwin_arm64.tar.gz" .TagName }}
     bin: kubectl-lock
   - selector:
       matchLabels:
         os: linux
         arch: amd64
-    {{addURIAndSha "https://github.com/chaosinthecrd/kube-lock/releases/download/{{ .TagName }}/kubectl-lock_{{ .TagName }}_linux_amd64.tar.gz" .TagName }}
+    {{addURIAndSha "https://github.com/chaosinthecrd/kube-lock/releases/download/{{ .TagName }}/kube-lock_{{ .TagName }}_linux_amd64.tar.gz" .TagName }}
     bin: kubectl-lock
   - selector:
       matchLabels:
         os: windows
         arch: amd64
-    {{addURIAndSha "https://github.com/chaosinthecrd/kube-lock/releases/download/{{ .TagName }}/kubectl-lock_{{ .TagName }}_windows_amd64.tar.gz" .TagName }}
+    {{addURIAndSha "https://github.com/chaosinthecrd/kube-lock/releases/download/{{ .TagName }}/kube-lock_{{ .TagName }}_windows_amd64.tar.gz" .TagName }}
     bin: kubectl-lock.exe
