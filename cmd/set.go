@@ -18,7 +18,10 @@ var setCmd = &cobra.Command{
 	PreRun: toggleDebug,
 	Run: func(cmd *cobra.Command, args []string) {
 		nativeCmd = true
-		setProfile(cmd, args)
+		err := setProfile(cmd, args)
+		if err != nil {
+			log.Fatal(err)
+		}
 	},
 }
 
@@ -46,7 +49,7 @@ func setProfile(cmd *cobra.Command, args []string) error {
 	}
 
 	ok, blockedVerbs, deleteExceptions := validateProfileInConfig(args[0], config)
-	if ok != true {
+	if !ok {
 		log.Error("Profile '", args[0], "' not found. Please add it, or change Profile for context '", kubeContext, "'.")
 		os.Exit(1)
 	}

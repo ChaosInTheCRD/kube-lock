@@ -17,7 +17,10 @@ var lockCmd = &cobra.Command{
 	PreRun: toggleDebug,
 	Run: func(cmd *cobra.Command, args []string) {
 		nativeCmd = true
-		setLock(cmd, args)
+		err := setLock(cmd, args)
+		if err != nil {
+			log.Fatal(err)
+		}
 	},
 }
 
@@ -59,6 +62,11 @@ func setContextStatus(kubeContext string, index int, status string, config KubeL
 		config.Contexts[index].UnlockTimestamp = ""
 	}
 	config.Contexts[index].Status = status
-	WriteToConfig(config)
+	err := WriteToConfig(config)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
 	log.Info("Set context '", kubeContext, "' to ", status, ".")
 }

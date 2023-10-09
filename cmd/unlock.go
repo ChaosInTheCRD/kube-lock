@@ -19,7 +19,10 @@ var unlockCmd = &cobra.Command{
 	PreRun: toggleDebug,
 	Run: func(cmd *cobra.Command, args []string) {
 		nativeCmd = true
-		removeLock(cmd, args)
+		err := removeLock(cmd, args)
+		if err != nil {
+			log.Fatal(err)
+		}
 	},
 }
 
@@ -64,7 +67,7 @@ func yesNo(body string) bool {
 	}
 	_, result, err := prompt.Run()
 	if err != nil {
-		log.Fatal("Prompt failed %v\n", err)
+		log.Fatalf("Prompt failed: %s\n", err.Error())
 		os.Exit(1)
 	}
 	if result != "Yes" {

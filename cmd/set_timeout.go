@@ -41,7 +41,10 @@ func setTimeout(cmd *cobra.Command, args []string) error {
 	}
 
 	config.UnlockTimeoutPeriod = newTimeout
-	WriteToConfig(config)
+	err = WriteToConfig(config)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -31,13 +31,20 @@ func disableTimeout() error {
 
 	log.Info("Disabling Unlock Timeouts...")
 	config.UnlockTimeoutPeriod = ""
-	WriteToConfig(config)
+	err = WriteToConfig(config)
+	if err != nil {
+		return err
+	}
 
 	log.Info("Removing Unlock Timestamps for all contexts...")
 	for i := range config.Contexts {
 		config.Contexts[i].UnlockTimestamp = ""
 	}
 
-	WriteToConfig(config)
+	err = WriteToConfig(config)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

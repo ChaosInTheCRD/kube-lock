@@ -150,7 +150,7 @@ func evaluateContext(cmd *cobra.Command, args []string) (bool, error) {
 
 	// Checking status has an associated profile
 	ok, blockedVerbs, deleteExceptions := validateProfileInConfig(status, config)
-	if ok != true {
+	if !ok {
 		log.Error("Profile '", status, "' not found. Please add it, or change Profile for context '", kubeContext, "'.")
 		os.Exit(1)
 	}
@@ -203,9 +203,12 @@ func execKubectl(cmd *cobra.Command, args []string) {
 	kubectlCmd.Stdout = os.Stdout
 	kubectlCmd.Stderr = os.Stderr
 
-	kubectlCmd.Start()
+	err := kubectlCmd.Start()
+	if err != nil {
+		os.Exit(err.(*exec.ExitError).ExitCode())
+	}
 
-	err := kubectlCmd.Wait()
+	err = kubectlCmd.Wait()
 	if err != nil {
 		os.Exit(err.(*exec.ExitError).ExitCode())
 	}
@@ -404,7 +407,7 @@ func checkIfUnlockExpired(unlockTimestamp string, kubeContext string, contextInd
 		return false, err
 	}
 
-	if time.Now().Sub(timestampTime) > unlockTimeout {
+	if time.Since(timestampTime) > unlockTimeout {
 		return false, nil
 	}
 	return true, nil
