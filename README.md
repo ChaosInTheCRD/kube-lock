@@ -1,4 +1,5 @@
 # kube-lock
+## Now Available as a [Krew](https://krew.sigs.k8s.io/) Plugin!
 
 <p align="center">
   <img src="./logo/kube-lock.png" width="350" />
