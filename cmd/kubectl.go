@@ -127,7 +127,11 @@ func evaluateContext(cmd *cobra.Command, args []string) (bool, error) {
 		return false, err
 	}
 
-	// Check if
+	if len(args) > 0 {
+		if args[0] == "lock" {
+			return true, nil
+		}
+	}
 
 	// Exit now if status is 'unlocked' or 'locked'
 	if status == "unlocked" {
