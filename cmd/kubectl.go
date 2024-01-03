@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	plural "github.com/gertd/go-pluralize"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -180,7 +179,6 @@ func evaluateContext(cmd *cobra.Command, args []string) (bool, error) {
 
 	// Finally, we must check if there is a delete exception for the delete command
 	kubeconfig := os.Getenv("KUBECONFIG")
-	plural := plural.NewClient()
 	for _, exception := range deleteExceptions {
 		exists, err := findResourceTypeFromDiscovery(kubeconfig, resource, exception)
 		if err != nil {
@@ -189,14 +187,14 @@ func evaluateContext(cmd *cobra.Command, args []string) (bool, error) {
 		}
 
 		if exists {
-			log.Debug("Delete exceptions in Profile '", status, "' allows for deleting '", plural.Plural(resource), "'! Proceeding...")
+			log.Debug("Delete exceptions in Profile '", status, "' allows for deleting '", resource, "'! Proceeding...")
 			return true, nil
 		} else {
 			log.Debug("Delete exception '", exception.Resource, "' does not match any resources in group '", exception.Group, "'...")
 		}
 	}
 
-	log.Error("Halt! Delete exceptions in Profile '", status, "' does not allow for deleting '", plural.Plural(resource), "'! Exiting...")
+	log.Error("Halt! Delete exceptions in Profile '", status, "' does not allow for deleting '", resource, "'! Exiting...")
 	return false, nil
 }
 
@@ -381,11 +379,11 @@ func findResourceTypeFromDiscovery(kubeConfig string, resource string, exception
 
 	for _, res := range resourceList.APIResources {
 		if res.Name == exception.Resource {
-			if (resource != res.Name) || contains(res.ShortNames, resource) || contains(res.Verbs, resource) {
-				log.Debug("resource ", resource, " does not match any strings in resource ", res.Name)
-			} else {
+			if (resource == res.Name) || contains(res.ShortNames, resource) || (resource == res.SingularName) {
 				log.Debug("resource ", resource, " matches a string in resource ", res.Name)
 				return true, nil
+			} else {
+				log.Debug("resource ", resource, " does not match any strings in resource ", res.Name)
 			}
 		}
 	}
