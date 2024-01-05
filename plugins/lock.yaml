@@ -15,26 +15,26 @@ spec:
           os: darwin
           arch: amd64
       uri: https://github.com/chaosinthecrd/kube-lock/releases/download/v0.0.5/kube-lock_v0.0.5_darwin_amd64.tar.gz
-      sha256: 40b1c7802e3bb26a121e7325fd9384dc89f1f8541eaa02468daf954326572eff
+      sha256: 6e07fcb4e751b6b86835aa36f20deef6de884d090e67d0a6789906f9ae653e37
       bin: kubectl-lock
     - selector:
         matchLabels:
           os: darwin
           arch: arm64
       uri: https://github.com/chaosinthecrd/kube-lock/releases/download/v0.0.5/kube-lock_v0.0.5_darwin_arm64.tar.gz
-      sha256: 6d9a8670a44c4e7b813e213324b25b19312e358c57c661e2805567b8148145c0
+      sha256: 3ecd3e13910fcb7e1935bf5cb23d0228b7750ba23e49fd3292f226bf00ee4e38
       bin: kubectl-lock
     - selector:
         matchLabels:
           os: linux
           arch: amd64
       uri: https://github.com/chaosinthecrd/kube-lock/releases/download/v0.0.5/kube-lock_v0.0.5_linux_amd64.tar.gz
-      sha256: 982d6b239373658331393639caa7ac929a207a18f9058a21a70b5143e1d262d1
+      sha256: 687ed257b35c031f5963d65c8d9deba90fc0723f48c57e6d72fc73839c1ad4d9
       bin: kubectl-lock
     - selector:
         matchLabels:
           os: windows
           arch: amd64
       uri: https://github.com/chaosinthecrd/kube-lock/releases/download/v0.0.5/kube-lock_v0.0.5_windows_amd64.tar.gz
-      sha256: d8b55d6683af200a0e5d06d4929e48369e318d7d725cd91728a087c7b8f16e4d
+      sha256: 6bf4dcff3390770b29e9a47d214b2d90f3606d3f7c815d7097cf1dd0e3e80cfe
       bin: kubectl-lock.exe
